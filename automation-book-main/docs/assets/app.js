@@ -7,12 +7,12 @@
     return window.BOOK_DATA.exercises || [];
   }
 
-  function availableSections() {
+  function implementedSections() {
     return [...new Set(allExercises().map(e => e.section))];
   }
 
   function defaultSection() {
-    return availableSections()[0] || 'all';
+    return implementedSections()[0] || 'all';
   }
 
   function sectionTitle(id) {
@@ -47,7 +47,7 @@
   }
 
   function setCurrentSection(sectionId, options = {}) {
-    const available = availableSections();
+    const available = implementedSections();
     if (!sectionId || !available.includes(sectionId)) {
       sectionId = defaultSection();
     }
@@ -58,6 +58,22 @@
     renderExercises(sectionId);
     if (options.updateHash) {
       history.pushState(null, '', `#section-${sectionId.replaceAll('.', '-')}`);
+    }
+  }
+
+  function renderPlan() {
+    const grid = document.getElementById('plan-grid');
+    grid.innerHTML = '';
+    for (const chapter of window.BOOK_DATA.chapters) {
+      const card = document.createElement('article');
+      card.className = 'plan-card';
+      const badgeText = chapter.status === 'implemented' ? 'ממומש' : chapter.status === 'partial' ? 'חלקי' : 'שלד';
+      const badgeClass = chapter.status === 'implemented' ? 'badge' : 'badge badge-muted';
+      card.innerHTML = `
+        <h3>פרק ${chapter.number} ${chapter.title} <span class="${badgeClass}">${badgeText}</span></h3>
+        <ul>${(chapter.sections || []).map(s => `<li>${s.id} ${s.title}${s.comingSoon ? ' <span class="badge badge-muted">בעבודה</span>' : ''}</li>`).join('')}</ul>
+      `;
+      grid.appendChild(card);
     }
   }
 
@@ -86,6 +102,10 @@
         const isActive = section.id === activeSection;
 
         if (!hasExercises) {
+          const div = document.createElement('div');
+          div.className = 'nav-coming';
+          div.textContent = `${section.id} ${section.title}${section.comingSoon ? ' · בעבודה' : ''}`;
+          chapterContent.appendChild(div);
           continue;
         }
 
@@ -121,7 +141,7 @@
 
   function renderFilter() {
     const select = document.getElementById('section-filter');
-    const sections = availableSections();
+    const sections = implementedSections();
     select.innerHTML = sections.map(id => `<option value="${id}">${sectionTitle(id)}</option>`).join('');
     select.addEventListener('change', () => setCurrentSection(select.value, { updateHash: true }));
   }
@@ -227,6 +247,7 @@
   });
 
   document.addEventListener('DOMContentLoaded', () => {
+    renderPlan();
     renderFilter();
     setCurrentSection(sectionFromHash() || defaultSection());
     setupMenu();
