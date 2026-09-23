@@ -57,7 +57,13 @@
     renderNav();
     renderExercises(sectionId);
     if (options.updateHash) {
-      history.pushState(null, '', `#section-${sectionId.replaceAll('.', '-')}`);
+      const hash = `#section-${sectionId.replaceAll('.', '-')}`;
+      if (window.location.protocol === 'file:') {
+        // The Windows preview opens docs/index.html directly from disk.
+        window.location.hash = hash;
+      } else {
+        history.pushState(null, '', hash);
+      }
     }
   }
 

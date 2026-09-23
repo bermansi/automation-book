@@ -1123,6 +1123,14 @@ def main() -> None:
     # every image embedded in Word, while only the images referenced by public
     # book data may remain in docs/media.
     legacy.prune_unused_media(data, args.out)
+    # Match the validator's exact view of the published JavaScript file. Some
+    # Word images remain in a reused docs/media directory after conversion;
+    # only references in the final public book data belong in the website.
+    published_js = (args.out / "assets" / "book-data.js").read_text(encoding="utf-8")
+    published_media = set(re.findall(r"media/([^\"'\\\\]+)", published_js))
+    for media_path in (args.out / "media").iterdir():
+        if media_path.is_file() and media_path.name not in published_media:
+            media_path.unlink()
     print(
         f"Built {len(data['exercises'])} public questions from {args.source}; "
         f"draft headings: {len(data['structure']['draftQuestions'])}."

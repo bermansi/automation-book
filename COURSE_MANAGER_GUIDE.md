@@ -25,44 +25,17 @@ The default source location is:
 
 If the DOCX is stored elsewhere, drag it onto `BUILD_SITE_WINDOWS.bat`.
 
-## Included first-run test for question 2.2.5
+## Inspecting this handoff
 
-This handoff ZIP deliberately contains two different states:
+The supplied ZIP already contains a validated 79-question website and the
+private Word source. Extract it into a new folder and open `docs/index.html`
+to inspect the current public book before publishing. Check questions 2.2.5
+and 5.6.1 and their solutions, several diagrams and tables, the RTL/LTR text,
+and the sidebar title. The opening book plan should no longer be present.
 
-- `docs/` is the 77-question starting website.
-- `private-source/Automation_book_current.docx` is the current Word source and
-  already contains questions 2.2.5 and 5.6.1, the corrected 3.2.2 solution,
-  and no empty section 3.3.
-
-This difference is intentional: it tests whether the Windows helper really
-converts the current Word file and updates the website.
-
-1. Extract the ZIP into a new folder.
-2. Double-click `BUILD_SITE_WINDOWS.bat`.
-3. Wait for the complete rebuild.
-4. The change summary should report:
-
-   ```text
-   Before: 77 public questions
-   After:  79 public questions
-   Added public numbers:   2.2.5, 5.6.1
-   Removed public numbers: none
-   Changed public numbers: 1.2.2, 1.2.3, 1.2.4, 1.3.2, 1.3.3, 1.3.4, 3.2.2
-   ```
-
-5. Wait for `BUILD AND VALIDATION SUCCEEDED`.
-6. Inspect 2.2.5 in the website that opens and confirm that both the question
-   and its solution use the complete Hebrew sequence א–ד. The condition lines
-   inside answer א must be bullets and must not restart א, ב, ג.
-7. Inspect 5.6.1 and confirm that it contains parts א–ג, a solution after each
-   part, numbered Arduino code, and the wiring diagram in solution ג.
-8. Confirm that section 3.3 (מאפיינים) and all completion-status badges are
-   absent.
-
-Do not run the Bash publishing command before this test succeeds. Before the
-BAT runs, `docs/` is only the 77-question test baseline. After the successful
-BAT run, the same local folder contains the validated 79-question website and
-is ready to publish.
+The generated public question data and images are preserved from the supplied
+ZIP. For future edits to Word, run `BUILD_SITE_WINDOWS.bat` and inspect its
+question-change summary and browser preview before publishing a new build.
 
 ## Editing an existing question
 
@@ -301,9 +274,10 @@ REPO_URL="https://github.com/CURRENT_OWNER/automation-book.git" \
 Use `EyalBriman` as `CURRENT_OWNER` while the repository is still under Eyal,
 or `Bermansi` after the transfer is complete.
 
-This prebuilt upload mode does not require Python, Pandoc, or LibreOffice. It
-checks that the essential generated website files exist and then uploads the
-already-validated `docs/` folder.
+This prebuilt upload mode validates the generated website with Python 3 and
+does not require Pandoc or LibreOffice. The publishing helper also checks for
+the private handoff marker, so it cannot accidentally publish from a bare
+GitHub checkout or a parent folder containing a nested project.
 
 The script excludes `private-source/` and all Word files from the public
 repository.

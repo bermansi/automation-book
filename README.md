@@ -5,14 +5,13 @@ document. The default private source path is:
 
 `private-source/Automation_book_current.docx`
 
-This complete handoff includes the current private Word source at that path, so
-`BUILD_SITE_WINDOWS.bat` can be started by double-clicking it. A newer `.docx`
-can instead be dragged onto the helper.
+This complete handoff includes the private Word source at that path and the
+validated 79-question generated website in `docs/`. The Word source is private:
+the publishing script excludes it from the public repository.
 
-For the included BAT test, `docs/` intentionally contains the 77-question
-starting website. It is not the final publishable version yet. Run the Windows
-helper successfully first; it will generate the 79-question website from the
-included Word source.
+The present site keeps the questions, solutions, and images from the supplied
+public ZIP. Sigal's requested changes affect only the interface: the redundant
+opening book plan is removed, and the sidebar is titled `תוכן העניינים`.
 
 The current importer discovers chapters, sections, questions, and solutions
 from the Word document structure. It no longer depends on fixed Pandoc block
@@ -28,66 +27,48 @@ additional parts.
 
 ## Quick start
 
-On Windows, double-click `BUILD_SITE_WINDOWS.bat`. A newer Word file can also
-be dragged onto that file. The helper always rebuilds the complete website from
-the selected Word file, prints an informational question-change summary, and
-only replaces `docs/` after the staged build passes validation.
+To inspect the included website on Windows, open `docs/index.html` in a browser.
+Check the sidebar, several questions and their solutions, and images before
+publishing. This is the same local preview opened by the Windows build helper.
 
-### Included BAT test
-
-This package deliberately starts with 77 questions in `docs/`, while the
-included Word source contains question 2.2.5. This lets a manager test the real
-Word-to-website workflow instead of receiving a site that was already built.
-
-1. Double-click `BUILD_SITE_WINDOWS.bat`.
-2. Wait for the complete rebuild and the change summary.
-3. The summary should say `Added public numbers: 2.2.5, 5.6.1` and no removed
-   public numbers. It reports 3.2.2 as changed because its K-means
-   initialization was corrected. It also reports 1.2.2–1.2.4 and
-   1.3.2–1.3.4 as changed because this build corrects their solution labels
-   from Hebrew letters to the numeric scheme used by their Word questions.
-4. Continue only if the window ends with `BUILD AND VALIDATION SUCCEEDED` and
-   the opened website contains 2.2.5 with Hebrew parts א–ד and 5.6.1 with
-   Hebrew parts א–ג. In the 2.2.5 solution,
-   the condition lines inside answer א must be bullets, not another א–ד list.
-
-After this test succeeds, the local `docs/` folder contains 79 questions and
-is ready to publish. Running the BAT again simply rebuilds and validates the
-complete site again.
+For a later Word edit, save the private Word file and double-click
+`BUILD_SITE_WINDOWS.bat`, or drag another `.docx` onto it. The helper rebuilds
+the website in a temporary folder, reports question changes, validates it,
+and opens the new preview. It replaces `docs/` only after validation succeeds.
+Review its change summary and preview before publishing any rebuilt version.
 
 The change summary is informational and compares normalized visible wording.
 The full validator and the opened browser preview remain the checks for images,
 tables, list numbering, subparts, and page behavior.
 
-On macOS or Linux:
+To rebuild from Word on macOS or Linux:
 
 ```bash
 bash BUILD_SITE.sh
 ```
 
-After checking the generated site, publish it with an explicit repository URL:
+After checking the included or newly generated site, publish from the extracted
+handoff folder with the repository URL:
 
 ```bash
-REPO_URL="https://github.com/CURRENT_OWNER/automation-book.git" \
+REPO_URL="https://github.com/bermansi/automation-book.git" \
   SKIP_BUILD=1 \
   bash PUBLISH_TO_GITHUB.sh
 ```
 
-On Windows, after `BUILD_SITE_WINDOWS.bat` has already ended with
-`BUILD AND VALIDATION SUCCEEDED`, open Git Bash in the project folder and use:
+On Windows, open Git Bash in the extracted handoff folder after inspecting the
+included site, or after a Word build ends with `BUILD AND VALIDATION SUCCEEDED`:
 
 ```bash
-REPO_URL="https://github.com/CURRENT_OWNER/automation-book.git" \
+REPO_URL="https://github.com/bermansi/automation-book.git" \
   SKIP_BUILD=1 \
   bash PUBLISH_TO_GITHUB.sh
 ```
 
-This uploads the existing, already-validated generated site without trying to
-run Python, Pandoc, or LibreOffice a second time inside Git Bash.
-
-The publishing script deliberately requires `REPO_URL`. Use `EyalBriman` as
-`CURRENT_OWNER` while the repository is still under Eyal, or `Bermansi` after
-the transfer is complete.
+This mode validates and uploads the existing site without rebuilding from Word.
+Python 3 is needed for validation; Pandoc and LibreOffice are needed only for a
+Word rebuild. The publishing script refuses to run from a bare GitHub checkout,
+which has no private handoff marker.
 
 To use another repository:
 
@@ -145,7 +126,7 @@ building, checking, and publication procedure.
 
 ## Current publication rules
 
-- After the included BAT test succeeds, the September 2026 build publishes 79
+- The included September 2026 public website contains 79
   questions, including questions 2.2.5 and 5.6.1 and the mean-shift question
   3.2.3.
 - Question 3.2.2 contains the corrected K-means initialization from the 2026

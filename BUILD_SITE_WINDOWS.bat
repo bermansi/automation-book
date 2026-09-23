@@ -33,11 +33,10 @@ echo Automation Book build started.
 echo Keep this window open. A full rebuild may take several minutes.
 echo Word source: %WORD_FILE%
 echo.
-echo The supplied test package currently has 77 public questions.
-echo Its Word source also contains the new questions 2.2.5 and 5.6.1.
-echo It updates question 3.2.2 and removes the empty section 3.3.
-echo The helper will now rebuild the complete website from the Word file.
+echo The supplied public website already has 79 questions.
+echo The helper will rebuild the complete website from the private Word file.
 echo The change summary is informational and will not block a valid build.
+echo Check every reported change in the opened preview before publishing.
 
 set "PYTHON_CMD="
 py -3 --version >nul 2>&1
