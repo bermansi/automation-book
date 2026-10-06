@@ -453,6 +453,30 @@ table .math.display {
   font-weight: 700;
 }
 
+.word-list-numeric {
+  list-style: none;
+  padding-inline-start: 2.5rem;
+}
+.word-list-numeric > li {
+  position: relative;
+}
+.number-marker {
+  position: absolute;
+  right: -2.5rem;
+  top: 0;
+  width: 2rem;
+  text-align: end;
+}
+.word-list-numeric[dir="ltr"] > li > .number-marker {
+  right: auto;
+  left: -2.5rem;
+}
+.number-marker, .numeric-label, .book-number {
+  direction: ltr;
+  unicode-bidi: isolate;
+  white-space: nowrap;
+}
+
 /* Pandoc represents Word code listings as ordered-list containers. */
 .word-code,
 .word-code * {

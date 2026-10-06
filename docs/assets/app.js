@@ -173,6 +173,68 @@
     });
   }
 
+  function fixNumberLabels(root) {
+    // Numeric list markers need their own LTR isolate in a Hebrew paragraph.
+    // Keep Word's start/value/reversed numbering and leave code listings alone.
+    root.querySelectorAll('ol').forEach(ordered => {
+      if (ordered.classList.contains('word-list-hebrew') || ordered.closest('.word-code')) return;
+      if (ordered.hasAttribute('type') && ordered.getAttribute('type') !== '1') return;
+      const items = Array.from(ordered.children).filter(item => item.tagName === 'LI');
+      const step = ordered.hasAttribute('reversed') ? -1 : 1;
+      let number = ordered.hasAttribute('start') ? Number(ordered.getAttribute('start')) : (step < 0 ? items.length : 1);
+      ordered.classList.add('word-list-numeric');
+      items.forEach(item => {
+        if (item.hasAttribute('value')) number = Number(item.getAttribute('value'));
+        const marker = document.createElement('bdi');
+        marker.className = 'number-marker';
+        marker.dir = 'ltr';
+        marker.setAttribute('aria-hidden', 'true');
+        marker.textContent = `${number}.`;
+        item.insertBefore(marker, item.firstChild);
+        number += step;
+      });
+    });
+
+    // Manual labels can span several Word runs, so isolate the full token.
+    root.querySelectorAll('.question-body p, .solution-body p').forEach(paragraph => {
+      if (paragraph.closest('.word-code')) return;
+      const match = paragraph.textContent.match(/^\s*(\d+[.)])\s+/);
+      if (!match) return;
+      let remaining = match[0].length;
+      const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+      const nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      for (const node of nodes) {
+        const take = Math.min(remaining, node.textContent.length);
+        node.textContent = node.textContent.slice(take);
+        remaining -= take;
+        if (!remaining) break;
+      }
+      const label = document.createElement('bdi');
+      label.className = 'numeric-label';
+      label.dir = 'ltr';
+      label.textContent = match[1];
+      paragraph.insertBefore(document.createTextNode(' '), paragraph.firstChild);
+      paragraph.insertBefore(label, paragraph.firstChild);
+    });
+
+    // Isolate hierarchical exercise numbers from their Hebrew titles.
+    root.querySelectorAll('.exercise-title, .exercise-meta > span:first-child').forEach(element => {
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      if (!walker.nextNode()) return;
+      const node = walker.currentNode;
+      const match = node.textContent.match(/\d+(?:\.\d+)+(?:[א-ת])?/);
+      if (!match) return;
+      const suffix = node.splitText(match.index);
+      suffix.splitText(match[0].length);
+      const label = document.createElement('bdi');
+      label.className = 'book-number';
+      label.dir = 'ltr';
+      suffix.replaceWith(label);
+      label.appendChild(suffix);
+    });
+  }
+
   function renderExercises(sectionId = state.section || defaultSection()) {
     const list = document.getElementById('exercise-list');
     const chapterTitle = document.getElementById('chapter-title');
@@ -205,6 +267,7 @@
     }
 
     fixBidiFragments(list);
+    fixNumberLabels(list);
     if (window.MathJax && window.MathJax.typesetPromise) {
       window.MathJax.typesetPromise([list]).catch(() => {});
     }

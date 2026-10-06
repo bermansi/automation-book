@@ -58,6 +58,12 @@ number.
 
 ## Questions with subparts
 
+For matrices and vectors, use Word's **Insert → Equation → Matrix** tools.
+Put each entry in its own cell and use the intended rows and columns. Ordinary
+brackets around space-separated values create a single row and lose the matrix
+dimensions in the website. The validator checks equation arrays throughout the
+public book.
+
 Use one Word numbering system for the question parts: either Hebrew
 `א, ב, ג, ...` or numeric `1, 2, 3, ...`. Apply real Word list numbering to all
 question parts. This question list is authoritative: the importer uses its

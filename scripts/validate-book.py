@@ -375,6 +375,46 @@ for filename in matrix_images:
     if not path.exists() or path.stat().st_size < 500:
         errors.append(f"Missing or empty rasterized image-processing matrix: {filename}")
 
+math_array_count = 0
+for exercise in exercises:
+    fragments = [exercise.get("questionHtml", ""), exercise.get("solutionHtml", "")]
+    for part in exercise.get("parts", []):
+        fragments.extend([part.get("questionHtml", ""), part.get("solutionHtml", "")])
+    for fragment in fragments:
+        visible_html = html_module.unescape(fragment)
+        for environment, contents in re.findall(
+            r"\\begin\{(bmatrix|pmatrix|matrix|vmatrix|Vmatrix|Bmatrix|smallmatrix)\}(.*?)\\end\{\1\}",
+            visible_html, re.DOTALL,
+        ):
+            math_array_count += 1
+            rows = [row.strip() for row in re.split(r"\\\\", contents) if row.strip()]
+            columns = [len(re.split(r"(?<!\\)&", row)) for row in rows]
+            if not rows or len(set(columns)) != 1:
+                errors.append(f"Inconsistent matrix/vector rows in {exercise.get('number')}")
+        # Word arrays must be real equation matrices. Space-separated values
+        # inside ordinary brackets lose the distinction between rows/columns.
+        for array in re.findall(r"\\lbrack(.*?)\\rbrack", fragment, re.DOTALL):
+            entries = re.sub(r"\\\s|\s+", " ", array).strip()
+            if re.fullmatch(r"[+\-]?\s*\d+(?:\.\d+)?(?:\s+[+\-]?\s*\d+(?:\.\d+)?)+", entries):
+                message = f"Flattened numeric matrix/vector in {exercise.get('number')}"
+                if message not in errors:
+                    errors.append(message)
+        for paragraph in re.findall(r"<p\b[^>]*>(.*?)</p>", visible_html, re.DOTALL):
+            if 'class="math"' in paragraph or 'class="display math"' in paragraph:
+                continue
+            text = re.sub(r"<[^>]+>", "", paragraph).strip()
+            if re.match(r"^\.\s*(?:\d+|[א-ת])(?:\s|$)", text):
+                errors.append(f"Reversed paragraph label in {exercise.get('number')}")
+
+if app.exists():
+    for needle in ["fixNumberLabels(list)", "number-marker", "numeric-label", "book-number"]:
+        if needle not in app_html:
+            errors.append(f"Missing bidirectional number-label handling in app.js: {needle}")
+if css.exists():
+    for needle in [".word-list-numeric", ".number-marker", "unicode-bidi: isolate;"]:
+        if needle not in css_text:
+            errors.append(f"Missing bidirectional number-label styling: {needle}")
+
 if errors:
     print("Validation failed:")
     for error in errors:
@@ -382,5 +422,6 @@ if errors:
     sys.exit(1)
 print(
     f"Validation passed: {len(exercises)} public exercises, corrected Karnaugh maps, "
-    "rasterized matrices, hierarchy, and publication-safety checks are complete."
+    f"rasterized matrices, {math_array_count} equation arrays, hierarchy, "
+    "number labels, and publication-safety checks are complete."
 )
