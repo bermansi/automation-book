@@ -2,17 +2,17 @@
 
 The corrected private Word source is `private-source/Automation_book_current.docx`.
 The complete website is already built in `docs/`. Hebrew headings and subpart
-labels follow right-to-left direction. English terms, code, and equations retain
+labels follow right-to-left direction. Complete English/math expressions, including indices, values and units, retain
 their left-to-right order. The importer accepts both `1.` and `1)` headings.
 
 ## Preview and publish this ZIP
 
-Save `automation-book-rtl-mac.zip` in Downloads. Run in Terminal:
+Save `automation-book-math-readable.zip` in Downloads. Run in Terminal:
 
 ```bash
 cd "$HOME/Downloads" &&
-unzip automation-book-rtl-mac.zip &&
-cd automation-book-rtl-mac &&
+unzip automation-book-math-readable.zip &&
+cd automation-book-math-readable &&
 python3 scripts/validate-book.py --docs docs &&
 open docs/index.html
 ```
@@ -22,7 +22,7 @@ Inspect the headings, question subparts, and solutions. Then publish:
 ```bash
 REPO_URL="https://github.com/bermansi/automation-book.git" \
 SKIP_BUILD=1 \
-COMMIT_MESSAGE="Fix Hebrew RTL headings and question subparts" \
+COMMIT_MESSAGE="Fix mixed Hebrew and math rendering throughout the book" \
 bash PUBLISH_TO_GITHUB.sh
 ```
 

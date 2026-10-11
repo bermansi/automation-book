@@ -696,6 +696,8 @@ def render_word_visuals(source: Path, docs_dir: Path, temp_dir: Path) -> Dict[st
 
 def normalize_text_string(text: str) -> str:
     text = text.translate(PRIVATE_CHAR_MAP)
+    # Word embeds complete LTR expressions; HTML uses semantic LTR spans instead.
+    text = re.sub(r"[\u200e\u200f\u202a-\u202e\u2066-\u2069]", "", text)
     text = text.replace("\u00a0", " ")
     # Add spaces around common embedded LTR expressions in Hebrew text.
     for pattern, repl in BAD_BIDI_REPLACEMENTS:
@@ -732,19 +734,44 @@ def isolate_ltr_text(soup: BeautifulSoup) -> None:
         parts = []
         last = 0
         changed = normalized != original
-        for match in LTR_RUN_RE.finditer(normalized):
-            token = match.group(0)
+        for match in re.finditer(r"[^\u0590-\u05FF\n]+", normalized):
+            start, end = match.span()
+            while start < end and (normalized[start].isspace() or normalized[start] in ',.;:'):
+                start += 1
+            while end > start and (normalized[end - 1].isspace() or normalized[end - 1] in ',.;:'):
+                end -= 1
+            # A Hebrew paragraph's list label must retain RTL punctuation.
+            prefix = re.match(r"^\s*(?:\d+|[א-ת])[.)]\s+", normalized)
+            if prefix and start < prefix.end():
+                start = prefix.end()
+            for opening, closing in [('(', ')'), ('[', ']'), ('{', '}')]:
+                while start < end and normalized[end - 1] == opening and normalized[start:end].count(opening) > normalized[start:end].count(closing):
+                    end -= 1
+                    while end > start and normalized[end - 1].isspace():
+                        end -= 1
+                while start < end and normalized[start] == closing and normalized[start:end].count(closing) > normalized[start:end].count(opening):
+                    start += 1
+                    while start < end and normalized[start].isspace():
+                        start += 1
+            token = normalized[start:end]
+            numeric_math = re.search(r"\d\s*[-–−+/×=<>≤≥]\s*[+\-]?\d|\d+(?:\.\d+)?\s*[%°]", token)
+            if not re.search(r"[A-Za-z\u0370-\u03FF]", token) and not numeric_math:
+                continue
+            token = re.sub(
+                r"(?<=\d)\s+(?=(?:Kg|kg|cm|mm|kHz|Hz|mA|mV|RPM|rpm|Ns/m|N/ms|N/m|V|N|H|F|W|s|m)\b)",
+                "\u00a0", token,
+            )
             # Do not wrap very short accidental Latin in the middle of a Hebrew word.
             if not token.strip():
                 continue
-            if match.start() > last:
-                parts.append(NavigableString(normalized[last:match.start()]))
+            if start > last:
+                parts.append(NavigableString(normalized[last:start]))
             span = soup.new_tag("span")
             span["class"] = "ltr-inline"
             span["dir"] = "ltr"
             span.string = token
             parts.append(span)
-            last = match.end()
+            last = end
             changed = True
         if last < len(normalized):
             parts.append(NavigableString(normalized[last:]))
@@ -865,6 +892,58 @@ def merge_ltr_fragments(soup: BeautifulSoup) -> None:
             span.insert(0, prev.extract())
 
 
+def normalize_inline_directions(soup: BeautifulSoup) -> None:
+    """Remove Word run-level direction boundaries before grouping expressions."""
+    for span in list(soup.find_all('span')):
+        if span.get('dir') not in ('ltr', 'rtl'):
+            continue
+        if {'math', 'ltr-inline'} & set(span.get('class', [])):
+            continue
+        if set(span.attrs) == {'dir'}:
+            span.unwrap()
+    # Removing run spans can leave adjacent text nodes; join them before matching.
+    soup.smooth()
+
+
+def join_ltr_atoms(soup: BeautifulSoup) -> None:
+    """Keep indices and neighboring values/units in a single LTR expression."""
+    def atom(node):
+        return isinstance(node, Tag) and (
+            'ltr-inline' in node.get('class', [])
+            or ('math' in node.get('class', []) and 'display' not in node.get('class', []))
+            or node.name in ('sub', 'sup')
+            or (node.name in ('strong', 'em') and not HEBREW_RE.search(node.get_text())
+                and re.search(r'[A-Za-z\u0370-\u03FF]', node.get_text()))
+        )
+    starts = list(soup.find_all(lambda tag: isinstance(tag, Tag) and (
+        'ltr-inline' in tag.get('class', [])
+        or ('math' in tag.get('class', []) and 'display' not in tag.get('class', []))
+    )))
+    for first in starts:
+        if first.parent is None or first.find_parent(class_='word-code') or first.find_parent(class_='ltr-inline'):
+            continue
+        if 'math' in first.get('class', []):
+            wrapper = soup.new_tag('span', attrs={'class': 'ltr-inline', 'dir': 'ltr'})
+            first.wrap(wrapper)
+            first = wrapper
+        while True:
+            nxt = first.next_sibling
+            if atom(nxt):
+                if 'ltr-inline' in nxt.get('class', []):
+                    for child in list(nxt.contents):
+                        first.append(child.extract())
+                    nxt.decompose()
+                else:
+                    first.append(nxt.extract())
+                continue
+            if isinstance(nxt, NavigableString):
+                following = nxt.next_sibling
+                if re.fullmatch(r'[\s,;:=+\-*/≤≥→()\[\]0-9.]*', str(nxt)) and atom(following):
+                    first.append(nxt.extract())
+                    continue
+            break
+
+
 def postprocess_soup(soup: BeautifulSoup) -> None:
     # Set safe RTL defaults on semantic text blocks.
     for tag in soup.find_all(RTL_TEXT_TAGS):
@@ -875,8 +954,10 @@ def postprocess_soup(soup: BeautifulSoup) -> None:
         classes = set(tag.get("class", []))
         classes.add("math")
         tag["class"] = sorted(classes)
+    normalize_inline_directions(soup)
     isolate_ltr_text(soup)
     merge_ltr_fragments(soup)
+    join_ltr_atoms(soup)
     promote_formula_lines(soup)
     promote_code_blocks(soup)
 

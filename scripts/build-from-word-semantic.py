@@ -161,6 +161,7 @@ def qn(local: str) -> str:
 
 def word_text(element: etree._Element) -> str:
     text = "".join(node.text or "" for node in element.findall(".//w:t", NS))
+    text = re.sub(r"[\u200e\u200f\u202a-\u202e\u2066-\u2069]", "", text)
     return re.sub(r"\s+", " ", text).strip()
 
 

@@ -309,3 +309,12 @@ upload a ZIP through the GitHub website.
 Edit in place, add by copying a complete nearby block, and delete by leaving an
 empty draft heading. Keep `פתרון` separate, rebuild, inspect, and only then
 publish.
+
+## Mixed Hebrew and mathematics
+
+Keep Hebrew paragraphs right-to-left. Enter each formula as a complete native
+Word Equation, including subscripts and units, rather than splitting operators,
+values, and units among runs with different directions. Keep unit names such as
+bar as normal text within equations. The website builder groups complete LTR
+expressions across styled runs, and validation checks the Hebrew/math boundaries.
+See UPDATE_ON_MAC.md for the Mac build and publishing process.

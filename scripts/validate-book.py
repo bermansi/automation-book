@@ -7,6 +7,7 @@ import hashlib
 import json
 import re
 import sys
+from html.parser import HTMLParser
 from pathlib import Path
 
 
@@ -15,6 +16,36 @@ parser.add_argument("--docs", type=Path, default=Path("docs"))
 args = parser.parse_args()
 root = args.docs
 errors: list[str] = []
+
+
+class InlineDirectionAudit(HTMLParser):
+    """Check the semantic direction boundaries used by mixed Hebrew/math text."""
+    def __init__(self, number: str):
+        super().__init__(convert_charrefs=True)
+        self.number = number
+        self.stack = []
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        if tag not in {'img', 'br', 'hr', 'input', 'meta', 'link', 'wbr'}:
+            self.stack.append((tag, set(attrs.get('class', '').split()), attrs.get('dir')))
+
+    def handle_endtag(self, tag):
+        for index in range(len(self.stack) - 1, -1, -1):
+            if self.stack[index][0] == tag:
+                del self.stack[index:]
+                break
+
+    def handle_data(self, text):
+        classes = set().union(*(item[1] for item in self.stack)) if self.stack else set()
+        if re.search(r'[\u202a-\u202e\u2066-\u2069]', text):
+            errors.append(f"Word direction controls leaked into HTML in {self.number}")
+        if {'math', 'word-code', 'formula-line'} & classes:
+            return
+        if 'ltr-inline' in classes and re.search(r'[\u0590-\u05FF]', text):
+            errors.append(f"Hebrew text inside an LTR expression in {self.number}")
+        if re.search(r'[A-Za-z\u0370-\u03FF]', text) and 'ltr-inline' not in classes:
+            errors.append(f"Unisolated English/math text in {self.number}: {text[:50]!r}")
 
 
 def check_images(html: str, label: str) -> None:
@@ -381,6 +412,8 @@ for exercise in exercises:
     for part in exercise.get("parts", []):
         fragments.extend([part.get("questionHtml", ""), part.get("solutionHtml", "")])
     for fragment in fragments:
+        direction_audit = InlineDirectionAudit(str(exercise.get('number')))
+        direction_audit.feed(fragment)
         visible_html = html_module.unescape(fragment)
         for environment, contents in re.findall(
             r"\\begin\{(bmatrix|pmatrix|matrix|vmatrix|Vmatrix|Bmatrix|smallmatrix)\}(.*?)\\end\{\1\}",
@@ -423,5 +456,5 @@ if errors:
 print(
     f"Validation passed: {len(exercises)} public exercises, corrected Karnaugh maps, "
     f"rasterized matrices, {math_array_count} equation arrays, hierarchy, "
-    "number labels, and publication-safety checks are complete."
+    "number labels, mixed Hebrew/math direction, and publication-safety checks are complete."
 )

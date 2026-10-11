@@ -480,6 +480,14 @@ table .math.display {
   direction: rtl;
 }
 
+/* One LTR expression may span styled Word runs and wrap between quantities. */
+.ltr-inline {
+  display: inline !important;
+  unicode-bidi: isolate !important;
+  white-space: normal;
+  margin-inline: 0;
+}
+
 /* Pandoc represents Word code listings as ordered-list containers. */
 .word-code,
 .word-code * {
