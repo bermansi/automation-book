@@ -174,11 +174,25 @@
   }
 
   function fixNumberLabels(root) {
-    // Numeric list markers need their own LTR isolate in a Hebrew paragraph.
+    // Hebrew list punctuation follows RTL flow; digits keep their own order.
     // Keep Word's start/value/reversed numbering and leave code listings alone.
+    const hebrewNumber = value => {
+      if (value < 1 || value > 999) return String(value);
+      let result = '';
+      for (const [amount, letter] of [[400,'ת'],[300,'ש'],[200,'ר'],[100,'ק']]) {
+        while (value >= amount) { result += letter; value -= amount; }
+      }
+      if (value === 15) return result + 'טו';
+      if (value === 16) return result + 'טז';
+      for (const [amount, letter] of [[90,'צ'],[80,'פ'],[70,'ע'],[60,'ס'],[50,'נ'],[40,'מ'],[30,'ל'],[20,'כ'],[10,'י'],[9,'ט'],[8,'ח'],[7,'ז'],[6,'ו'],[5,'ה'],[4,'ד'],[3,'ג'],[2,'ב'],[1,'א']]) {
+        if (value >= amount) { result += letter; value -= amount; }
+      }
+      return result;
+    };
     root.querySelectorAll('ol').forEach(ordered => {
-      if (ordered.classList.contains('word-list-hebrew') || ordered.closest('.word-code')) return;
-      if (ordered.hasAttribute('type') && ordered.getAttribute('type') !== '1') return;
+      if (ordered.closest('.word-code')) return;
+      const hebrew = ordered.classList.contains('word-list-hebrew');
+      if (!hebrew && ordered.hasAttribute('type') && ordered.getAttribute('type') !== '1') return;
       const items = Array.from(ordered.children).filter(item => item.tagName === 'LI');
       const step = ordered.hasAttribute('reversed') ? -1 : 1;
       let number = ordered.hasAttribute('start') ? Number(ordered.getAttribute('start')) : (step < 0 ? items.length : 1);
@@ -187,9 +201,9 @@
         if (item.hasAttribute('value')) number = Number(item.getAttribute('value'));
         const marker = document.createElement('bdi');
         marker.className = 'number-marker';
-        marker.dir = 'ltr';
+        marker.dir = ordered.getAttribute('dir') === 'ltr' ? 'ltr' : 'rtl';
         marker.setAttribute('aria-hidden', 'true');
-        marker.textContent = `${number}.`;
+        marker.textContent = `${hebrew ? hebrewNumber(number) : number}.` + (marker.dir === 'rtl' ? '\u200F' : '');
         item.insertBefore(marker, item.firstChild);
         number += step;
       });
@@ -198,7 +212,7 @@
     // Manual labels can span several Word runs, so isolate the full token.
     root.querySelectorAll('.question-body p, .solution-body p').forEach(paragraph => {
       if (paragraph.closest('.word-code')) return;
-      const match = paragraph.textContent.match(/^\s*(\d+[.)])\s+/);
+      const match = paragraph.textContent.match(/^\s*((?:\d+|[א-ת])[.)])\s+/);
       if (!match) return;
       let remaining = match[0].length;
       const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
@@ -212,8 +226,8 @@
       }
       const label = document.createElement('bdi');
       label.className = 'numeric-label';
-      label.dir = 'ltr';
-      label.textContent = match[1];
+      label.dir = /[א-ת]/.test(paragraph.textContent) ? 'rtl' : 'ltr';
+      label.textContent = match[1].replace(/\)$/, '.') + (label.dir === 'rtl' ? '\u200F' : '');
       paragraph.insertBefore(document.createTextNode(' '), paragraph.firstChild);
       paragraph.insertBefore(label, paragraph.firstChild);
     });

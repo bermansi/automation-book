@@ -27,6 +27,11 @@ additional parts.
 
 ## Quick start
 
+For macOS preview, publishing, and later Word edits, see
+[UPDATE_ON_MAC.md](UPDATE_ON_MAC.md). The Mac build helper uses a private Python
+environment, finds LibreOffice in `/Applications`, and validates the new site
+before replacing the previous build.
+
 To inspect the included website on Windows, open `docs/index.html` in a browser.
 Check the sidebar, several questions and their solutions, and images before
 publishing. This is the same local preview opened by the Windows build helper.

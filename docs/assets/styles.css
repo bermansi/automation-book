@@ -476,6 +476,9 @@ table .math.display {
   unicode-bidi: isolate;
   white-space: nowrap;
 }
+.number-marker[dir="rtl"], .numeric-label[dir="rtl"] {
+  direction: rtl;
+}
 
 /* Pandoc represents Word code listings as ordered-list containers. */
 .word-code,

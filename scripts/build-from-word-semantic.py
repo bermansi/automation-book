@@ -55,9 +55,9 @@ HEBREW_RE = re.compile(r"[\u0590-\u05FF]")
 CHAPTER_RE = re.compile(r"^פרק\s+([1-5])\b\s*(.*)$")
 MANUAL_QUESTION_RE = re.compile(r"^(\d+\.\d+\.\d+[א-ת]?)\s+(.+)$")
 CHAPTER4_SECTION_RE = re.compile(r"^(4\.\d+)\s+(.+)$")
-CHAPTER4_QUESTION_RE = re.compile(r"^(\d+)\)\s+(.+)$")
+CHAPTER4_QUESTION_RE = re.compile(r"^(\d+)[.)]\s+(.+)$")
 CHAPTER5_EXAM_RE = re.compile(r"^5\.\d+\s+(.+)$")
-CONTROLLER_TEXT_QUESTION_RE = re.compile(r"^\d+\)\s*")
+CONTROLLER_TEXT_QUESTION_RE = re.compile(r"^\d+[.)]\s*")
 MARKER_RE = re.compile(r"\[\[AB(?:CHAPTER|SECTION|QUESTION|PART|SOLUTION):[^\]]+\]\]")
 LIST_FORMAT_MARKER = "[[ABLISTFMT:hebrew]]"
 

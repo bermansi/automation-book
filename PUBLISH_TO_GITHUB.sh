@@ -45,7 +45,7 @@ if [[ "$SKIP_BUILD" == "1" ]]; then
     exit 1
   fi
 else
-  "$PROJECT_DIR/BUILD_SITE.sh" "${1:-$PROJECT_DIR/private-source/Automation_book_current.docx}"
+  bash "$PROJECT_DIR/BUILD_SITE.sh" "${1:-$PROJECT_DIR/private-source/Automation_book_current.docx}"
 fi
 
 UPLOAD_TEMP="$(mktemp -d "${TMPDIR:-/tmp}/automation-book-upload-XXXXXX")"
@@ -64,6 +64,8 @@ git rm -r --ignore-unmatch . >/dev/null
   tar \
     --exclude='./.git' \
     --exclude='./private-source' \
+    --exclude='./.venv' \
+    --exclude='./.book-build-*' \
     --exclude='*.docx' \
     --exclude='~$*.docx' \
     --exclude='__pycache__' \
