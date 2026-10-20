@@ -136,7 +136,7 @@
     if (Array.isArray(ex.parts) && ex.parts.length) {
       const partsHtml = ex.parts.map(part => `
         <section class="exercise-part">
-          <h5>סעיף ${part.label}${part.title ? ' · ' + part.title : ''}</h5>
+          <h5>סעיף ${part.label}</h5>
           <div class="question-label">שאלה</div>
           <div class="question-body">${part.questionHtml}</div>
           <details class="solution">
@@ -274,7 +274,6 @@
       article.id = `ex-${ex.id}`;
       article.innerHTML = `
         <div class="exercise-meta"><span>שאלה ${ex.number}</span><span>·</span><span>${sectionTitle(ex.section)}</span></div>
-        <h4 class="exercise-title">${ex.number} ${ex.title}</h4>
         ${renderExerciseBody(ex)}
       `;
       list.appendChild(article);

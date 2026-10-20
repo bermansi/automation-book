@@ -155,7 +155,7 @@ class MultiWordTests(unittest.TestCase):
                 archive.writestr(name, value)
         structure = BUILDER.semantic_structure(source, self.folder / 'chapter4-marked.docx')
         self.assertEqual([q.id for q in structure.questions], ['4.1.12'])
-        self.assertEqual(structure.questions[0].title, 'מרחק נסיעה לפי ספירות אנקודר')
+        self.assertEqual(structure.questions[0].title, '')
         self.assertEqual(structure.sections[0].title, 'מערכות מדידה וחיישנים')
 
     def test_mixed_first_answer_label(self):
@@ -197,6 +197,47 @@ class MultiWordTests(unittest.TestCase):
             self.assertIsNotNone(matrix)
             self.assertEqual([len(row.findall(mt('e'))) for row in matrix.findall(mt('mr'))], dimensions)
         self.assertEqual(''.join(a.itertext()), '01-6-5')
+        # A dotted y denotes a state derivative here, not an output row.
+        derivative = etree.Element(mt('acc'))
+        equation.insert(0, derivative)
+        run(equation, 'y=')
+        derivative_vector = array(['x2', '3-5x2-6x1'])
+        BUILDER.restore_state_space_arrays(
+            [SimpleNamespace(element=p)], [SimpleNamespace(section='1.4', paragraph_index=0)])
+        # Existing matrices supply no new flattened square candidate; include
+        # another A expression to establish the dimension in this fixture.
+        run(equation, 'A=')
+        array(['0', '1', '-6', '-5'])
+        BUILDER.restore_state_space_arrays(
+            [SimpleNamespace(element=p)], [SimpleNamespace(section='1.4', paragraph_index=0)])
+        self.assertEqual([len(row) for row in derivative_vector.find(mt('m')).findall(mt('mr'))], [1, 1])
+
+    def test_literal_question_parts_require_matching_word_answer_scheme(self):
+        source = self.sources[2]
+        with zipfile.ZipFile(source) as archive:
+            entries = {name: archive.read(name) for name in archive.namelist()}
+        root = etree.fromstring(entries['word/document.xml'])
+        body = root.find(f'{{{W}}}body')
+        body.clear()
+        for item in [paragraph('פרק 3 עיבוד תמונה', 'Heading1'),
+                     paragraph('נושא לדוגמה', level=1), paragraph('3.1.8'),
+                     paragraph('זהו נוסח השאלה'), paragraph('א. סעיף ראשון בשאלה'),
+                     paragraph('ב. סעיף שני בשאלה'), paragraph('פתרון'),
+                     paragraph('תשובה ראשונה', level=0), paragraph('תשובה שנייה', level=0)]:
+            body.append(item)
+        entries['word/document.xml'] = etree.tostring(root)
+        def save():
+            with zipfile.ZipFile(source, 'w') as archive:
+                for name, value in entries.items():
+                    archive.writestr(name, value)
+        save()
+        with self.assertRaisesRegex(SystemExit, 'Word answer labels do not match'):
+            BUILDER.semantic_structure(source, self.folder / 'invalid.docx')
+        entries['word/numbering.xml'] = entries['word/numbering.xml'].replace(b'val="decimal"', b'val="hebrew1"')
+        save()
+        structure = BUILDER.semantic_structure(source, self.folder / 'valid.docx')
+        self.assertEqual(structure.questions[0].part_labels, ['א', 'ב'])
+        self.assertEqual(structure.questions[0].solution_part_layout, 'word-list')
 
     def test_media_namespacing(self):
         results = []

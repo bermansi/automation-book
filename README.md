@@ -158,3 +158,17 @@ These generate representative Word fixtures, test five-file mapping and image
 collisions, and compare a real Pandoc conversion of split and combined inputs.
 Pandoc and LibreOffice are required for the conversion check. The actual five
 course Word files must still be checked after import.
+
+
+## Question and answer labels
+
+Only chapter and section topic headings have descriptive titles. Questions use
+only their public numbers; grouped parts use only their letters or numbers.
+The five private Word sources contain these corrections as well as the RTL/LTR
+formatting fixes. Keep existing question numbers when editing. To add a question,
+copy its complete structure and assign a new unique public question number on
+its number-only paragraph. Retain real Word list numbering for question parts,
+and use the same Hebrew or decimal scheme for the corresponding answer parts.
+The importer rejects a detected mismatch instead of publishing mismatched labels.
+Numbered calculation steps and code-line numbers inside an answer are separate
+from the question-part labels.

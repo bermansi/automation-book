@@ -365,7 +365,7 @@ if not app.exists():
     errors.append("Missing docs/assets/app.js")
 else:
     app_html = app.read_text(encoding="utf-8")
-    for needle in ["renderExerciseBody", "exercise-part", "solutionHtml", "chapterTitle.textContent", '<h4 class="exercise-title">']:
+    for needle in ["renderExerciseBody", "exercise-part", "solutionHtml", "chapterTitle.textContent", '<div class="exercise-meta">']:
         if needle not in app_html:
             errors.append(f"app.js is missing progressive-part support: {needle}")
     for forbidden in ["ממומש", "חלקי", "בעבודה", "comingSoon", "implementedSections"]:

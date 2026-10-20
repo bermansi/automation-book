@@ -10,12 +10,12 @@ Word files and has **85 public questions**. All five files are already in
 
 ## 1. Preview and publish this ZIP
 
-Download `automation-book-ready.zip` to Downloads and run:
+Download `automation-book-corrected.zip` to Downloads and run:
 
 ```bash
 cd "$HOME/Downloads"
-unzip automation-book-ready.zip -d automation-book-ready
-cd automation-book-ready/automation-book-main
+unzip automation-book-corrected.zip -d automation-book-corrected
+cd automation-book-corrected/automation-book-main
 open docs/index.html
 ```
 
@@ -32,8 +32,8 @@ This validates and uploads the already rebuilt website and the project code.
 All Word files and the complete private source folder are excluded from GitHub.
 Wait for the GitHub Pages workflow to succeed before checking the live site.
 
-The chapter files are already mapped as follows. Their document contents were
-preserved byte-for-byte; only the filenames were standardized:
+The chapter files are already mapped as follows. The private documents were corrected for direction, answer labels,
+and question-level headings; their filenames were standardized:
 
 | Original filename | Private build input | Destination |
 | --- | --- | --- |
@@ -46,9 +46,10 @@ preserved byte-for-byte; only the filenames were standardized:
 For later edits, update the relevant private file and leave the other four in
 place. Preserve Word list levels and the question numbers. The importer reads
 the current chapter 4 titles and explicit numbers, and retains the established
-special controller IDs in chapter 1. Temporary conversion copies restore flat
-state-space arrays and mixed answer labels for web display; the original Word
-files are not rewritten.
+special controller IDs in chapter 1. The private Word sources now contain the direction, answer-label, and native
+state-space matrix corrections. Question and part descriptions are not used as
+extra website headings. Only chapter/section topic headings are displayed;
+questions and their parts retain their numbers/letters.
 
 ## 2. Build and preview
 
@@ -62,7 +63,7 @@ brew install --cask libreoffice
 Save and close the Word files, then run:
 
 ```bash
-cd "$HOME/Downloads/automation-book-ready/automation-book-main"
+cd "$HOME/Downloads/automation-book-corrected/automation-book-main"
 bash BUILD_SITE.sh
 ```
 

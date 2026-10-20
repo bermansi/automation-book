@@ -54,7 +54,7 @@ XML = "http://www.w3.org/XML/1998/namespace"
 NS = {"w": W}
 HEBREW_RE = re.compile(r"[\u0590-\u05FF]")
 CHAPTER_RE = re.compile(r"^פרק\s+([1-5])\b\s*(.*)$")
-MANUAL_QUESTION_RE = re.compile(r"^(\d+\.\d+\.\d+[א-ת]?)(?:[.)]\s*|\s+)(.+)$")
+MANUAL_QUESTION_RE = re.compile(r"^(\d+\.\d+\.\d+[א-ת]?)(?:(?:[.)]\s*|\s+)(.*))?$")
 CHAPTER4_SECTION_RE = re.compile(r"^(4\.\d+)\s+(.+)$")
 CHAPTER4_QUESTION_RE = re.compile(r"^(\d+)[.)]\s+(.+)$")
 CHAPTER5_EXAM_RE = re.compile(r"^5\.\d+\s+(.+)$")
@@ -326,15 +326,21 @@ def explicit_part_labels(records: Sequence[ParagraphRecord]) -> Tuple[Optional[s
     hebrew: List[str] = []
     numeric: List[str] = []
     for record in records:
-        text = re.sub(r"[\u200e\u200f\u202a-\u202e\u2066-\u2069]", "", record.text).strip()
-        match = re.match(r"^([א-ת]|\d+)[.)]\s*", text)
-        if not match:
-            continue
-        label = match.group(1)
-        if label.isdigit():
-            numeric.append(label)
-        else:
-            hebrew.append(label)
+        # Word can put several manually labelled parts in one paragraph,
+        # separated by line breaks. Read those lines independently.
+        pieces = []
+        for node in record.element.iter():
+            if node.tag == qn("t"):
+                pieces.append(node.text or "")
+            elif node.tag in {qn("br"), qn("cr")}:
+                pieces.append("\n")
+        for line in "".join(pieces).splitlines():
+            text = re.sub(r"[\u200e\u200f\u202a-\u202e\u2066-\u2069]", "", line).strip()
+            match = re.match(r"^([א-ת]|\d+)[.)]\s*", text)
+            if not match:
+                continue
+            label = match.group(1)
+            (numeric if label.isdigit() else hebrew).append(label)
     if hebrew and numeric:
         return "mixed", hebrew + numeric
     if hebrew:
@@ -368,9 +374,6 @@ def configure_single_solution_parts(
             question_groups[(record.num_id, record.level)].append(record)
 
     candidates = [items for items in question_groups.values() if len(items) >= 2]
-    if not candidates:
-        return
-
     # Include the solution marker itself: some Word questions begin their
     # collected solution with a heading such as "א. פתרון ...", which is both
     # the first answer label and the semantic solution boundary.
@@ -384,6 +387,28 @@ def configure_single_solution_parts(
         scheme = label_scheme(numbering_formats.get((record.num_id, record.level)))
         if scheme is not None:
             answer_groups[(record.num_id, record.level)].append(record)
+
+    literal_scheme, literal_labels = explicit_part_labels(
+        records[question.paragraph_index + 1:solution_index])
+    if not candidates and literal_scheme in {"hebrew", "numeric"} and len(literal_labels) >= 2:
+        count = len(literal_labels)
+        if literal_labels != sequential_labels(literal_scheme, count):
+            raise SystemExit(f"Non-sequential question part labels in {question.id}: {literal_labels}")
+        if explicit_scheme in {"hebrew", "numeric"} and explicit_labels == sequential_labels(explicit_scheme, count):
+            question.part_label_scheme = literal_scheme
+            question.part_labels = literal_labels
+            question.solution_part_layout = "explicit"
+            return
+        for answer_items in answer_groups.values():
+            if len(answer_items) != count:
+                continue
+            answer_scheme = label_scheme(numbering_formats.get((answer_items[0].num_id, 0)))
+            if answer_scheme != literal_scheme:
+                raise SystemExit(f"Word answer labels do not match question {question.id}; correct the private source.")
+            question.part_label_scheme = literal_scheme
+            question.part_labels = literal_labels
+            question.solution_part_layout = "word-list"
+            return
 
     # The real part list is normally the last repeated level-zero list before
     # the solution.  Require a complete answer mapping before recording it.
@@ -420,6 +445,8 @@ def configure_single_solution_parts(
             )
             if answer_scheme == scheme:
                 matching_answer_lists.append(answer_items)
+            else:
+                raise SystemExit(f"Word answer labels do not match question {question.id}; correct the private source.")
         if matching_answer_lists:
             question.part_label_scheme = scheme
             question.part_labels = sequential_labels(scheme, count)
@@ -488,7 +515,7 @@ def restore_state_space_arrays(records: Sequence[ParagraphRecord], questions: Se
             prefix = "".join("".join(sibling.itertext()) for sibling in list(delimiter.getparent())[:list(delimiter.getparent()).index(delimiter)])
             # Only a delimiter immediately after the output/C assignment is a
             # row vector. Later state vectors in that equation remain columns.
-            row = bool(re.search(r"(?:C|Y|y(?:t)?|Vc(?:t)?)\s*=$", prefix.strip()))
+            row = bool(re.search(r"(?:C|Y|y(?:t)?|Vc(?:t)?)\s*=$", prefix.strip())) and not any(sibling.tag == tag("acc") for sibling in list(delimiter.getparent())[:list(delimiter.getparent()).index(delimiter)])
             columns = dimension if len(groups) == dimension * dimension or row else 1
             matrix = etree.Element(tag("m"))
             for start in range(0, len(groups), columns):
@@ -571,7 +598,7 @@ def semantic_structure(source: Path, marked_output: Path) -> Structure:
                     question_id,
                     chapter,
                     section_id,
-                    short_title(title),
+                    "",
                     record.paragraph_index,
                     marker,
                 )
@@ -601,7 +628,7 @@ def semantic_structure(source: Path, marked_output: Path) -> Structure:
                         question_counter[section_id],
                         int(re.match(r"\d+", question_id.rsplit(".", 1)[1]).group()),
                     )
-                    add_question(question_id, chapter, section_id, explicit.group(2), record)
+                    add_question(question_id, chapter, section_id, explicit.group(2) or "", record)
                     continue
 
                 if chapter not in structural_num and record.level == 1 and record.num_id:
@@ -634,7 +661,7 @@ def semantic_structure(source: Path, marked_output: Path) -> Structure:
                 if explicit and explicit.group(1).startswith("4."):
                     question_id = explicit.group(1)
                     section_id = question_id.rsplit(".", 1)[0]
-                    add_question(question_id, chapter, section_id, explicit.group(2), record)
+                    add_question(question_id, chapter, section_id, explicit.group(2) or "", record)
                     continue
                 section_match = CHAPTER4_SECTION_RE.match(text)
                 if section_match:
@@ -666,7 +693,7 @@ def semantic_structure(source: Path, marked_output: Path) -> Structure:
         # "2)" text; the PD/PI questions use dedicated level-zero Word lists.
         controller_section = next((item for item in sections if item.id == "1.6"), None)
         next_section = next((item for item in sections if item.id == "1.7"), None)
-        if controller_section is not None:
+        if controller_section is not None and not any(q.section == "1.6" for q in questions):
             upper = next_section.paragraph_index if next_section is not None else len(records)
             controller_records = records[controller_section.paragraph_index + 1 : upper]
             direct_starts = [record for record in controller_records
@@ -1015,7 +1042,7 @@ def build_exercises(
             parts.append(
                 {
                     "label": part.label,
-                    "title": part.title,
+                    "title": "",
                     "questionHtml": part_question_html,
                     "solutionHtml": part_solution_html,
                 }

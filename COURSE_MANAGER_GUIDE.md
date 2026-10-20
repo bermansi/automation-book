@@ -329,3 +329,17 @@ values, and units among runs with different directions. Keep unit names such as
 bar as normal text within equations. The website builder groups complete LTR
 expressions across styled runs, and validation checks the Hebrew/math boundaries.
 See UPDATE_ON_MAC.md for the Mac build and publishing process.
+
+
+## Question and answer labels
+
+Only chapter and section topic headings have descriptive titles. Questions use
+only their public numbers; grouped parts use only their letters or numbers.
+The five private Word sources contain these corrections as well as the RTL/LTR
+formatting fixes. Keep existing question numbers when editing. To add a question,
+copy its complete structure and assign a new unique public question number on
+its number-only paragraph. Retain real Word list numbering for question parts,
+and use the same Hebrew or decimal scheme for the corresponding answer parts.
+The importer rejects a detected mismatch instead of publishing mismatched labels.
+Numbered calculation steps and code-line numbers inside an answer are separate
+from the question-part labels.
