@@ -19,24 +19,11 @@ set "PYTHONIOENCODING=utf-8"
 set "PROJECT_DIR=%~dp0"
 cd /d "%PROJECT_DIR%"
 
-if not "%~1"=="" (
-  set "WORD_FILE=%~1"
-) else (
-  set "WORD_FILE=%PROJECT_DIR%private-source\Automation_book_current.docx"
-)
-
-if not defined WORD_FILE goto :missing_word
-if not exist "%WORD_FILE%" goto :missing_word
-
 echo.
 echo Automation Book build started.
-echo Keep this window open. A full rebuild may take several minutes.
-echo Word source: %WORD_FILE%
-echo.
-echo The supplied public website already has 79 questions.
-echo The helper will rebuild the complete website from the private Word file.
-echo The change summary is informational and will not block a valid build.
-echo Check every reported change in the opened preview before publishing.
+echo Supply five DOCX paths in chapter order, a chapter folder, or one combined DOCX.
+echo With no arguments the helper uses private-source\chapters\chapter-1.docx through chapter-5.docx.
+echo Keep this window open until validation finishes.
 
 set "PYTHON_CMD="
 py -3 --version >nul 2>&1
@@ -83,8 +70,7 @@ if errorlevel 1 goto :failed
 
 echo.
 echo Building the website from:
-echo %WORD_FILE%
-%PYTHON_CMD% scripts\build-from-word-semantic.py "%WORD_FILE%" --out "%STAGING_DOCS%"
+%PYTHON_CMD% scripts\build-from-word-semantic.py %* --out "%STAGING_DOCS%"
 if errorlevel 1 goto :failed
 
 %PYTHON_CMD% scripts\summarize-question-changes.py ^
@@ -102,6 +88,8 @@ echo Replacing docs only after the staged build passed validation...
 robocopy "%STAGING_DOCS%" "%PROJECT_DIR%docs" /MIR /NFL /NDL /NJH /NJS /NP >nul
 if errorlevel 8 goto :failed
 rmdir /S /Q "%STAGING_ROOT%"
+if not exist "%PROJECT_DIR%private-source" mkdir "%PROJECT_DIR%private-source"
+> "%PROJECT_DIR%private-source\.book-handoff" echo Local source build validated.
 
 echo.
 echo ============================================================

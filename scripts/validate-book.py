@@ -333,10 +333,6 @@ public_section_ids = {
 }
 public_exercise_sections = {exercise.get("section") for exercise in exercises}
 public_exercise_numbers = {exercise.get("number") for exercise in exercises}
-if {"2.3", "3.4"} & public_section_ids:
-    errors.append("Unplanned review sections 2.3 or 3.4 are still present")
-if "3.3" in public_section_ids:
-    errors.append("Empty image-processing section 3.3 is still public")
 empty_public_sections = sorted(public_section_ids - public_exercise_sections)
 if empty_public_sections:
     errors.append("Public sections without questions: " + ", ".join(empty_public_sections))

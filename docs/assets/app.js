@@ -112,7 +112,7 @@
             const a = document.createElement('a');
             a.className = 'nav-exercise';
             a.href = `#ex-${ex.id}`;
-            a.textContent = `${ex.number} ${ex.title}`;
+            a.textContent = ex.number;
             exWrap.appendChild(a);
           }
         }

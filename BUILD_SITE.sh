@@ -2,7 +2,6 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORD_FILE="${1:-$PROJECT_DIR/private-source/Automation_book_current.docx}"
 
 # LibreOffice's macOS installer does not put soffice on the shell PATH.
 if [[ -x /Applications/LibreOffice.app/Contents/MacOS/soffice ]]; then
@@ -21,23 +20,20 @@ if ! command -v soffice >/dev/null 2>&1 && ! command -v libreoffice >/dev/null 2
   exit 1
 fi
 
-if [[ ! -f "$WORD_FILE" ]]; then
-  echo "ERROR: Word source not found: $WORD_FILE" >&2
-  exit 1
-fi
-
-cd "$PROJECT_DIR"
 python3 -m venv "$PROJECT_DIR/.venv"
 BUILD_PYTHON="$PROJECT_DIR/.venv/bin/python3"
-"$BUILD_PYTHON" -m pip install -r requirements.txt
+"$BUILD_PYTHON" -m pip install -r "$PROJECT_DIR/requirements.txt"
 BUILD_TEMP="$(mktemp -d "$PROJECT_DIR/.book-build-XXXXXX")"
 trap 'rm -rf -- "$BUILD_TEMP"' EXIT
-cp -R docs "$BUILD_TEMP/docs"
-"$BUILD_PYTHON" scripts/build-from-word-semantic.py "$WORD_FILE" --out "$BUILD_TEMP/docs"
-"$BUILD_PYTHON" scripts/validate-book.py --docs "$BUILD_TEMP/docs"
-"$BUILD_PYTHON" scripts/summarize-question-changes.py --before docs --after "$BUILD_TEMP/docs"
-mv docs "$BUILD_TEMP/previous-docs"
-mv "$BUILD_TEMP/docs" docs
+cp -R "$PROJECT_DIR/docs" "$BUILD_TEMP/docs"
+"$BUILD_PYTHON" "$PROJECT_DIR/scripts/build-from-word-semantic.py" "$@" --out "$BUILD_TEMP/docs"
+"$BUILD_PYTHON" "$PROJECT_DIR/scripts/validate-book.py" --docs "$BUILD_TEMP/docs"
+"$BUILD_PYTHON" "$PROJECT_DIR/scripts/summarize-question-changes.py" --before "$PROJECT_DIR/docs" --after "$BUILD_TEMP/docs"
+mv "$PROJECT_DIR/docs" "$BUILD_TEMP/previous-docs"
+mv "$BUILD_TEMP/docs" "$PROJECT_DIR/docs"
+
+mkdir -p "$PROJECT_DIR/private-source"
+printf 'Local source build validated.\n' > "$PROJECT_DIR/private-source/.book-handoff"
 
 echo "BUILD AND VALIDATION SUCCEEDED"
 echo "Preview: $PROJECT_DIR/docs/index.html"

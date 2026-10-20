@@ -19,16 +19,25 @@ validates the result, and replaces `docs/` only if validation succeeds.
    other generated website files by hand.
 4. Use one Word editor at a time when possible.
 
-The default source location is:
+The source is now five Word files, one per chapter, in
+`private-source/chapters/chapter-1.docx` through `chapter-5.docx`.
+See [UPDATE_ON_MAC.md](UPDATE_ON_MAC.md) for all five-file commands. Keep all
+five files in place even when editing only one. On Windows, double-click the
+BAT helper after placing the sources in that standard folder, or pass five
+quoted DOCX paths in chapter order from Command Prompt. In Bash use:
 
-`private-source/Automation_book_current.docx`
+```bash
+bash BUILD_SITE.sh
+```
 
-If the DOCX is stored elsewhere, drag it onto `BUILD_SITE_WINDOWS.bat`.
+Alternatively pass five quoted paths in chapter order or use explicit
+`--chapter "NUMBER=/path/file.docx"` assignments for all five chapters.
+The five inputs are always rebuilt together; the public numbering stays the same.
 
 ## Inspecting this handoff
 
-The supplied ZIP already contains a validated 79-question website and the
-private Word source. Extract it into a new folder and open `docs/index.html`
+The supplied ZIP already contains a validated 85-question website rebuilt from the supplied
+five October 2026 Word sources, which are included in `private-source/chapters/`. Extract it into a new folder and open `docs/index.html`
 to inspect the current public book before publishing. Check questions 2.2.5
 and 5.6.1 and their solutions, several diagrams and tables, the RTL/LTR text,
 and the sidebar title. The opening book plan should no longer be present.
@@ -207,7 +216,8 @@ Restart Windows after installation.
 ## Building on Windows
 
 1. Close Microsoft Word.
-2. Double-click `BUILD_SITE_WINDOWS.bat` to use the bundled source, or drag a
+2. Double-click `BUILD_SITE_WINDOWS.bat` to use the standard chapter folder. For
+   the legacy single-file input, drag a
    newer DOCX file onto it.
 3. Wait while the helper rebuilds the complete website.
 4. Read the informational `QUESTION CHANGE SUMMARY` in the command window.
@@ -297,7 +307,8 @@ upload a ZIP through the GitHub website.
 1. Keep a backup of the new DOCX file.
 2. Confirm that edits, additions, and deletions follow the structures described
    above.
-3. Replace `private-source/Automation_book_current.docx`, or drag the new file
+3. Replace the relevant `private-source/chapters/chapter-N.docx` file. Keep
+   the other four files present. For the legacy combined input, drag the new file
    onto the Windows helper.
 4. Build and validate the website.
 5. Read the change summary and inspect all affected questions and section

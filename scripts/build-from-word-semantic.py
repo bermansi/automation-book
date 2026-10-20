@@ -13,6 +13,7 @@ import copy
 import importlib.util
 import json
 import re
+import shutil
 import sys
 import tempfile
 import zipfile
@@ -53,7 +54,7 @@ XML = "http://www.w3.org/XML/1998/namespace"
 NS = {"w": W}
 HEBREW_RE = re.compile(r"[\u0590-\u05FF]")
 CHAPTER_RE = re.compile(r"^פרק\s+([1-5])\b\s*(.*)$")
-MANUAL_QUESTION_RE = re.compile(r"^(\d+\.\d+\.\d+[א-ת]?)\s+(.+)$")
+MANUAL_QUESTION_RE = re.compile(r"^(\d+\.\d+\.\d+[א-ת]?)(?:[.)]\s*|\s+)(.+)$")
 CHAPTER4_SECTION_RE = re.compile(r"^(4\.\d+)\s+(.+)$")
 CHAPTER4_QUESTION_RE = re.compile(r"^(\d+)[.)]\s+(.+)$")
 CHAPTER5_EXAM_RE = re.compile(r"^5\.\d+\s+(.+)$")
@@ -401,6 +402,15 @@ def configure_single_solution_parts(
                 question.solution_part_layout = "explicit"
                 return
 
+        if (explicit_scheme == scheme
+                and explicit_labels == sequential_labels(scheme, count)[1:]
+                and any(len(items) == 1 and label_scheme(numbering_formats.get((items[0].num_id, 0))) == scheme
+                        for items in answer_groups.values())):
+            question.part_label_scheme = scheme
+            question.part_labels = sequential_labels(scheme, count)
+            question.solution_part_layout = "explicit"
+            return
+
         matching_answer_lists = []
         for answer_items in answer_groups.values():
             if len(answer_items) != count:
@@ -415,6 +425,80 @@ def configure_single_solution_parts(
             question.part_labels = sequential_labels(scheme, count)
             question.solution_part_layout = "word-list"
             return
+
+
+def restore_state_space_arrays(records: Sequence[ParagraphRecord], questions: Sequence[QuestionRecord]) -> None:
+    """Restore flattened state-space arrays in temporary conversion copies.
+
+    The supplied equations use bracket delimiters with space-separated entries,
+    rather than Word matrix objects. In section 1.4 the square A matrix fixes
+    the state dimension. B and state vectors are columns; C and the vector
+    multiplying the state in an output equation are rows. Existing real Word
+    matrices are left intact. This does not change the private DOCX bytes.
+    """
+    m = "http://schemas.openxmlformats.org/officeDocument/2006/math"
+    ns = {"m": m}
+    tag = lambda name: f"{{{m}}}{name}"
+
+    def cells(expression):
+        groups = [[]]
+        for child in expression:
+            if child.tag == tag("r"):
+                text = child.find(tag("t"))
+                if text is not None and text.text and re.search(r"\s", text.text):
+                    for chunk in re.split(r"(\s+)", text.text):
+                        if not chunk:
+                            continue
+                        if chunk.isspace():
+                            if groups[-1]:
+                                groups.append([])
+                        else:
+                            run = copy.deepcopy(child)
+                            run.find(tag("t")).text = chunk
+                            groups[-1].append(run)
+                    continue
+            groups[-1].append(copy.deepcopy(child))
+        return [group for group in groups if group]
+
+    for question in questions:
+        if question.section != "1.4":
+            continue
+        later = [q.paragraph_index for q in questions if q.paragraph_index > question.paragraph_index]
+        upper = min(later) if later else len(records)
+        delimiters = []
+        for record in records[question.paragraph_index:upper]:
+            for delimiter in record.element.findall(".//m:d", ns):
+                beginning = delimiter.find("m:dPr/m:begChr", ns)
+                expression = delimiter.find(tag("e"))
+                if beginning is None or beginning.get(tag("val")) not in {"[", "|"} or expression is None:
+                    continue
+                if expression.find(".//m:m", ns) is not None:
+                    continue
+                groups = cells(expression)
+                if len(groups) > 1:
+                    delimiters.append((delimiter, expression, groups))
+        square_sizes = [int(len(groups) ** .5) for _, _, groups in delimiters
+                        if len(groups) >= 4 and int(len(groups) ** .5) ** 2 == len(groups)]
+        if not square_sizes:
+            continue
+        dimension = max(square_sizes)
+        for delimiter, expression, groups in delimiters:
+            if len(groups) not in {dimension, dimension * dimension}:
+                continue
+            prefix = "".join("".join(sibling.itertext()) for sibling in list(delimiter.getparent())[:list(delimiter.getparent()).index(delimiter)])
+            # Only a delimiter immediately after the output/C assignment is a
+            # row vector. Later state vectors in that equation remain columns.
+            row = bool(re.search(r"(?:C|Y|y(?:t)?|Vc(?:t)?)\s*=$", prefix.strip()))
+            columns = dimension if len(groups) == dimension * dimension or row else 1
+            matrix = etree.Element(tag("m"))
+            for start in range(0, len(groups), columns):
+                matrix_row = etree.SubElement(matrix, tag("mr"))
+                for group in groups[start:start + columns]:
+                    entry = etree.SubElement(matrix_row, tag("e"))
+                    entry.extend(group)
+            for child in list(expression):
+                expression.remove(child)
+            expression.append(matrix)
 
 
 def semantic_structure(source: Path, marked_output: Path) -> Structure:
@@ -470,7 +554,7 @@ def semantic_structure(source: Path, marked_output: Path) -> Structure:
                 SectionRecord(
                     section_id,
                     chapter,
-                    SECTION_TITLE_OVERRIDES.get(section_id, short_title(title)),
+                    short_title(title),
                     record.paragraph_index,
                     marker,
                 )
@@ -487,7 +571,7 @@ def semantic_structure(source: Path, marked_output: Path) -> Structure:
                     question_id,
                     chapter,
                     section_id,
-                    TITLE_OVERRIDES.get(question_id, short_title(title)),
+                    short_title(title),
                     record.paragraph_index,
                     marker,
                 )
@@ -546,6 +630,12 @@ def semantic_structure(source: Path, marked_output: Path) -> Structure:
                 continue
 
             if chapter == "4":
+                explicit = MANUAL_QUESTION_RE.match(text)
+                if explicit and explicit.group(1).startswith("4."):
+                    question_id = explicit.group(1)
+                    section_id = question_id.rsplit(".", 1)[0]
+                    add_question(question_id, chapter, section_id, explicit.group(2), record)
+                    continue
                 section_match = CHAPTER4_SECTION_RE.match(text)
                 if section_match:
                     section_id = section_match.group(1)
@@ -578,18 +668,23 @@ def semantic_structure(source: Path, marked_output: Path) -> Structure:
         next_section = next((item for item in sections if item.id == "1.7"), None)
         if controller_section is not None:
             upper = next_section.paragraph_index if next_section is not None else len(records)
-            controller_starts = [
-                record
-                for record in records[controller_section.paragraph_index + 1 : upper]
+            controller_records = records[controller_section.paragraph_index + 1 : upper]
+            direct_starts = [record for record in controller_records
+                             if record.level == 2 and record.num_id == structural_num.get("1")]
+            # The October split source makes the five controller exercises real
+            # question-level headings. Older sources use three P/PD/PI groups.
+            controller_starts = direct_starts if len(direct_starts) >= 5 else [
+                record for record in controller_records
                 if CONTROLLER_TEXT_QUESTION_RE.match(record.text)
                 or (record.level == 0 and record.num_id in {"25", "26"})
             ]
             expected_ids = ["1.6.1א", "1.6.1ב", "1.6.2א", "1.6.2ב", "1.6.3"]
-            if len(controller_starts) != len(expected_ids):
+            if len(controller_starts) < len(expected_ids):
                 raise SystemExit(
-                    "Section 1.6 must contain five controller questions; "
+                    "Section 1.6 must retain its five established controller questions; "
                     f"discovered {len(controller_starts)}"
                 )
+            expected_ids.extend(f"1.6.{index}" for index in range(4, len(controller_starts) - 1))
             for question_id, record in zip(expected_ids, controller_starts):
                 add_question(question_id, "1", "1.6", record.text, record)
 
@@ -744,6 +839,7 @@ def semantic_structure(source: Path, marked_output: Path) -> Structure:
             if numbering_formats.get((record.num_id, record.level)) == "hebrew1":
                 add_list_format_marker(record.element)
 
+        restore_state_space_arrays(records, questions)
         replacement = etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone="yes")
         marked_output.parent.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(marked_output, "w", compression=zipfile.ZIP_DEFLATED) as output:
@@ -990,6 +1086,23 @@ def normalize_explicit_solution_labels(
                 labelled_nodes.append((node, match.group(2)))
                 break
 
+    # Some answers use a real Word list for א and literal ב/ג/ד paragraphs.
+    # Flatten that first one-item list into an explicit labelled paragraph so
+    # all answers use the same sequence without altering the Word source.
+    current_labels = [label for _, label in labelled_nodes]
+    if current_labels == list(expected_labels)[1:]:
+        first_list = solution_soup.find("ol")
+        if first_list is not None and not first_list.find_parent("li"):
+            items = first_list.find_all("li", recursive=False)
+            if len(items) == 1 and int(first_list.get("start", 1)) == 1:
+                paragraph = items[0].find("p")
+                if paragraph is not None:
+                    paragraph.insert(0, NavigableString(expected_labels[0] + ". "))
+                    first_text = paragraph.find(string=True)
+                    labelled_nodes.insert(0, (first_text, expected_labels[0]))
+                    items[0].unwrap()
+                    first_list.unwrap()
+
     found_labels = [label for _, label in labelled_nodes]
     found_scheme = None
     if found_labels and all(label.isdigit() for label in found_labels):
@@ -1097,28 +1210,159 @@ def build_data(
     }
 
 
+def resolve_sources(sources: Sequence[Path], chapter_args: Sequence[str]) -> List[Tuple[Optional[str], Path]]:
+    """Resolve explicit chapter assignments before touching generated output."""
+    if chapter_args:
+        if sources:
+            raise SystemExit("Use positional sources OR --chapter NUMBER=FILE, not both.")
+        mapping = {}
+        for value in chapter_args:
+            number, separator, filename = value.partition("=")
+            if not separator or number not in set("12345") or not filename:
+                raise SystemExit("Expected --chapter NUMBER=FILE with NUMBER from 1 to 5.")
+            if number in mapping:
+                raise SystemExit(f"Duplicate chapter assignment: {number}")
+            mapping[number] = Path(filename).expanduser().resolve()
+        if set(mapping) != set("12345"):
+            raise SystemExit("Split input requires all five chapters (1–5).")
+        resolved = [(number, mapping[number]) for number in "12345"]
+    else:
+        sources = [path.expanduser().resolve() for path in sources]
+        if not sources:
+            folder = SCRIPT_DIR.parent / "private-source" / "chapters"
+            if folder.exists():
+                sources = [folder]
+            else:
+                sources = [SCRIPT_DIR.parent / "private-source" / "Automation_book_current.docx"]
+        if len(sources) == 1 and sources[0].is_dir():
+            sources = [sources[0] / f"chapter-{number}.docx" for number in "12345"]
+        if len(sources) not in {1, 5}:
+            raise SystemExit("Supply one combined DOCX, a chapter folder, or five DOCX files in chapter order.")
+        resolved = [(str(i), path) for i, path in enumerate(sources, 1)] if len(sources) == 5 else [(None, sources[0])]
+    for _, path in resolved:
+        if not path.is_file() or path.suffix.lower() != ".docx":
+            raise SystemExit(f"Word source not found or not a DOCX: {path}")
+    if len({path.resolve() for _, path in resolved}) != len(resolved):
+        raise SystemExit("Each chapter must use a different Word file.")
+    return resolved
+
+
+def prepare_chapter(source: Path, number: str, destination: Path) -> Path:
+    """Supply the chapter context when a split Word omits its chapter heading.
+
+    Preserve all archive members, relationships, list IDs and local formatting.
+    Never rewrite the user's source file or reset its numbering definitions.
+    """
+    with zipfile.ZipFile(source) as archive:
+        root = etree.fromstring(archive.read("word/document.xml"))
+        body = root.find(qn("body"))
+        if body is None:
+            raise SystemExit(f"No Word document body: {source}")
+        headings = []
+        for paragraph in body.findall(qn("p")):
+            match = CHAPTER_RE.match(word_text(paragraph))
+            if match:
+                headings.append((paragraph, match))
+        if any(match.group(1) != number for _, match in headings) or len(headings) > 1:
+            raise SystemExit(f"Chapter {number} input contains a conflicting or repeated chapter heading: {source}")
+        if headings:
+            paragraph = headings[0][0]
+            properties = paragraph.find(qn("pPr"))
+            if properties is None:
+                properties = etree.Element(qn("pPr"))
+                paragraph.insert(0, properties)
+            style = properties.find(qn("pStyle"))
+            if style is None:
+                style = etree.SubElement(properties, qn("pStyle"))
+            style.set(qn("val"), "Heading1")
+        else:
+            title = next(chapter["title"] for chapter in legacy.CHAPTERS if chapter["number"] == number)
+            paragraph = etree.Element(qn("p"))
+            properties = etree.SubElement(paragraph, qn("pPr"))
+            etree.SubElement(properties, qn("pStyle")).set(qn("val"), "Heading1")
+            etree.SubElement(etree.SubElement(paragraph, qn("r")), qn("t")).text = f"פרק {number} {title}"
+            body.insert(0, paragraph)
+        document = etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone=True)
+        with zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED) as output:
+            for item in archive.infolist():
+                output.writestr(item, document if item.filename == "word/document.xml" else archive.read(item.filename))
+    return destination
+
+
+def combine_chapter_data(results: Sequence[Tuple[str, dict, Path]], docs_dir: Path) -> dict:
+    """Merge independent builds; Word files commonly each contain image1.png."""
+    data = {
+        "source": "private Word sources (five chapter files; ignored by Git)",
+        "build": "semantic-word-structure-v2-multi-word-pandoc-word-drawings-rtl",
+        "notes": results[0][1]["notes"],
+        "structure": {"discoveredQuestions": 0, "publishedQuestions": 0,
+                      "draftQuestions": [], "excludedSections": sorted(EXCLUDED_PUBLIC_SECTIONS)},
+        "chapters": [], "exercises": [],
+    }
+    media = docs_dir / "media"
+    media.mkdir(parents=True, exist_ok=True)
+    fixed_dir = SCRIPT_DIR.parent / "source" / "fixed-visuals"
+    for number, chapter_data, chapter_docs in results:
+        if [chapter["number"] for chapter in chapter_data["chapters"]] != [number]:
+            raise SystemExit(f"Expected only chapter {number} in its Word source.")
+        if not chapter_data["exercises"]:
+            raise SystemExit(f"Chapter {number} produced no published questions; check its Word hierarchy.")
+        serialized = json.dumps(chapter_data["exercises"], ensure_ascii=False)
+        references = set(re.findall(r"media/([^\"'\\]+)", serialized))
+        names = {}
+        for name in sorted(references):
+            source = chapter_docs / "media" / name
+            # Preserve established fixed-figure names for existing validator/UI.
+            destination_name = name if (fixed_dir / name).is_file() else f"chapter-{number}-{name}"
+            destination = media / destination_name
+            shutil.copy2(source, destination)
+            names[name] = destination_name
+        def remap(match):
+            name = match.group(1)
+            return "media/" + names[name]
+        serialized = re.sub(r"media/([^\"'\\]+)", remap, serialized)
+        exercises = json.loads(serialized)
+        if any(not item["number"].startswith(number + ".") or not item["section"].startswith(number + ".") for item in exercises):
+            raise SystemExit(f"A question was routed outside chapter {number}.")
+        data["chapters"].extend(chapter_data["chapters"])
+        data["exercises"].extend(exercises)
+        for key in ("discoveredQuestions", "publishedQuestions"):
+            data["structure"][key] += chapter_data["structure"][key]
+        data["structure"]["draftQuestions"].extend(chapter_data["structure"]["draftQuestions"])
+    numbers = [item["number"] for item in data["exercises"]]
+    if len(numbers) != len(set(numbers)):
+        raise SystemExit("Duplicate public question numbers across Word sources.")
+    return data
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("source", type=Path, help="Canonical private automation-book DOCX")
+    parser = argparse.ArgumentParser(description="Build from one combined Word or five chapter Word files.")
+    parser.add_argument("source", nargs="*", type=Path, help="One DOCX, chapter folder, or five DOCX paths in chapter order")
+    parser.add_argument("--chapter", action="append", default=[], metavar="NUMBER=FILE", help="Explicit mapping; repeat for all five chapters")
     parser.add_argument("--out", type=Path, default=Path("docs"))
     args = parser.parse_args()
-    if not args.source.exists():
-        raise SystemExit(f"Word source not found: {args.source}")
+    sources = resolve_sources(args.source, args.chapter)
     args.out.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as directory:
-        temp_dir = Path(directory)
-        marked_source = temp_dir / "semantic-source.docx"
-        structure = semantic_structure(args.source, marked_source)
-        html_path = legacy.run_pandoc(marked_source, temp_dir)
-        data = build_data(
-            args.source,
-            marked_source,
-            structure,
-            html_path,
-            temp_dir,
-            args.out,
-        )
+        temp_root = Path(directory)
+        results = []
+        for number, source in sources:
+            temp_dir = temp_root / (number or "combined")
+            temp_dir.mkdir()
+            prepared = prepare_chapter(source, number, temp_dir / "chapter.docx") if number else source
+            marked_source = temp_dir / "semantic-source.docx"
+            structure = semantic_structure(prepared, marked_source)
+            chapter_docs = temp_dir / "docs" if number else args.out
+            html_path = legacy.run_pandoc(marked_source, temp_dir)
+            chapter_data = build_data(prepared, marked_source, structure, html_path, temp_dir, chapter_docs)
+            if number:
+                results.append((number, chapter_data, chapter_docs))
+                print(f"Chapter {number}: {len(chapter_data['exercises'])} published questions")
+            else:
+                data = chapter_data
+        if results:
+            data = combine_chapter_data(results, args.out)
     legacy.write_book_data(data, args.out)
     # Pruning is deliberately the final filesystem operation. Pandoc extracts
     # every image embedded in Word, while only the images referenced by public
@@ -1133,7 +1377,7 @@ def main() -> None:
         if media_path.is_file() and media_path.name not in published_media:
             media_path.unlink()
     print(
-        f"Built {len(data['exercises'])} public questions from {args.source}; "
+        f"Built {len(data['exercises'])} public questions from {len(sources)} Word file(s); "
         f"draft headings: {len(data['structure']['draftQuestions'])}."
     )
 

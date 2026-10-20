@@ -13,6 +13,8 @@ from pathlib import Path
 
 
 def load_book(path: Path) -> dict:
+    if path.is_dir():
+        path = path / "assets" / "book-data.js"
     raw = path.read_text(encoding="utf-8")
     return json.loads(raw.removeprefix("window.BOOK_DATA = ").rstrip(" ;\n"))
 
