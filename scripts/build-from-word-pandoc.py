@@ -479,6 +479,8 @@ LTR_RUN_RE = re.compile(
 )
 
 BAD_BIDI_REPLACEMENTS = [
+    # Some Word Symbol runs store infinity before the variable and arrow.
+    (re.compile(r"∞\s*([ts])\s*→"), r"\1→∞"),
     (re.compile(r"∞\s*→\s*t"), "t→∞"),
     (re.compile(r"∞\s*→\s*s"), "s→∞"),
     (re.compile(r"t\s*→\s*∞"), "t→∞"),

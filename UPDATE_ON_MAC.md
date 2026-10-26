@@ -10,12 +10,12 @@ Word files and has **85 public questions**. All five files are already in
 
 ## 1. Preview and publish this ZIP
 
-Download `automation-book-corrected.zip` to Downloads and run:
+Download `automation-book-rise-time-fixed.zip` to Downloads and run:
 
 ```bash
 cd "$HOME/Downloads"
-unzip automation-book-corrected.zip -d automation-book-corrected
-cd automation-book-corrected/automation-book-main
+unzip automation-book-rise-time-fixed.zip -d automation-book-rise-time-fixed
+cd automation-book-rise-time-fixed/automation-book-main
 open docs/index.html
 ```
 
@@ -63,7 +63,7 @@ brew install --cask libreoffice
 Save and close the Word files, then run:
 
 ```bash
-cd "$HOME/Downloads/automation-book-corrected/automation-book-main"
+cd "$HOME/Downloads/automation-book-rise-time-fixed/automation-book-main"
 bash BUILD_SITE.sh
 ```
 

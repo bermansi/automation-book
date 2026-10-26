@@ -73,6 +73,14 @@ def write_word(path, chapters, heading=True):
 
 
 class MultiWordTests(unittest.TestCase):
+    def test_time_limit_symbol_order_and_ltr_isolation(self):
+        from bs4 import BeautifulSoup
+        for source in ('∞ t→', '\uf0a5 t\uf0ae', '∞ → t', 't → ∞'):
+            soup = BeautifulSoup(f'<p>מה ערך התהליך בזמן t=2, בזמן {source}</p>', 'html.parser')
+            BUILDER.legacy.postprocess_soup(soup)
+            self.assertEqual(soup.find_all(class_='ltr-inline')[-1].get_text(), 't→∞')
+            self.assertEqual(soup.find_all(class_='ltr-inline')[-1]['dir'], 'ltr')
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
