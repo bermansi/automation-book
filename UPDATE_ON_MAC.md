@@ -4,7 +4,7 @@ There is one Word file per chapter (פרק), numbered 1–5. The website still u
 פרק / סעיף / תת־סעיף and the same public question numbering, solutions, images,
 and Hebrew/math direction handling. All five sources are rebuilt together.
 The supplied website was rebuilt and validated from the five October 2026
-Word files and has **85 public questions**. All five files are already in
+Word files and has **89 public questions**. All five files are already in
 `private-source/chapters/`. The auxiliary `thelink.docx` is preserved under
 `private-source/` and is not used as a chapter input.
 

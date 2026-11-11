@@ -747,6 +747,15 @@ def isolate_ltr_text(soup: BeautifulSoup) -> None:
             if prefix and start < prefix.end():
                 start = prefix.end()
             for opening, closing in [('(', ')'), ('[', ']'), ('{', '}')]:
+                # Between two Hebrew parentheticals, a text run may be
+                # ') 10°/s ('. Those brackets belong to the adjacent RTL text.
+                if start < end and normalized[start] == closing and normalized[end - 1] == opening:
+                    start += 1
+                    end -= 1
+                    while start < end and normalized[start].isspace():
+                        start += 1
+                    while end > start and normalized[end - 1].isspace():
+                        end -= 1
                 while start < end and normalized[end - 1] == opening and normalized[start:end].count(opening) > normalized[start:end].count(closing):
                     end -= 1
                     while end > start and normalized[end - 1].isspace():

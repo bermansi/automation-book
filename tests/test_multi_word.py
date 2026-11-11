@@ -73,6 +73,21 @@ def write_word(path, chapters, heading=True):
 
 
 class MultiWordTests(unittest.TestCase):
+    def test_ltr_units_between_hebrew_parentheticals(self):
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup('<p>0.1m/s (בתנועה קדימה) 10°/s (בפניה)</p>', 'html.parser')
+        BUILDER.legacy.postprocess_soup(soup)
+        self.assertEqual([s.get_text() for s in soup.find_all(class_='ltr-inline')], ['0.1m/s', '10°/s'])
+        self.assertIn('(בתנועה קדימה)', soup.get_text())
+        self.assertIn('(בפניה)', soup.get_text())
+
+    def test_numbers_inside_solution_sentences_are_not_part_labels(self):
+        html = '<p>א. תשובה ראשונה</p><p>דיוק החיישן בטמפרטורה <span dir="ltr">80)</span></p><p>ב. תשובה שנייה</p>'
+        result = BUILDER.normalize_explicit_solution_labels(html, 'hebrew', ['א', 'ב'], 'explicit')
+        self.assertIn('80)', result)
+        self.assertIn('א. תשובה ראשונה', result)
+        self.assertIn('ב. תשובה שנייה', result)
+
     def test_time_limit_symbol_order_and_ltr_isolation(self):
         from bs4 import BeautifulSoup
         for source in ('∞ t→', '\uf0a5 t\uf0ae', '∞ → t', 't → ∞'):

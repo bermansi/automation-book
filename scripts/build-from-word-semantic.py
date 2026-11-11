@@ -1103,6 +1103,10 @@ def normalize_explicit_solution_labels(
     for paragraph in solution_soup.find_all("p"):
         if paragraph.find_parent(["li", "table"]):
             continue
+        # A number inside an LTR span later in a sentence is not a part label
+        # (for example, the temperature in 'דיוק ... (80)').
+        if not re.match(r"^\s*[\u200e\u200f\u202a-\u202e\u2066-\u2069]*([א-ת]|\d+)[.)]", paragraph.get_text()):
+            continue
         for node in paragraph.find_all(string=True):
             original = str(node)
             match = re.match(

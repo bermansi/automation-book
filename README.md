@@ -7,7 +7,7 @@ You can instead pass five quoted paths in chapter order, or use five explicit
 `--chapter "NUMBER=/path/file.docx"` assignments. See [UPDATE_ON_MAC.md](UPDATE_ON_MAC.md)
 for copyable commands, setup, and publishing instructions.
 
-The supplied website in `docs/` has **85 public questions**. This archive includes all five October 2026
+The supplied website in `docs/` has **89 public questions**. This archive includes all five October 2026
 Word sources under `private-source/chapters/`. Rebuilding imports all current questions from
 your sources; the total is not fixed. The former single combined Word input is
 still supported. Word sources stay private and are excluded from publication.
@@ -135,7 +135,7 @@ building, checking, and publication procedure.
 
 ## Current publication rules
 
-- The included public website contains 85
+- The included public website contains 89
   questions, including questions 2.2.5 and 5.6.1 and the mean-shift question
   3.2.3.
 - Question 3.2.2 contains the corrected K-means initialization from the 2026

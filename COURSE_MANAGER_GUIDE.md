@@ -36,7 +36,7 @@ The five inputs are always rebuilt together; the public numbering stays the same
 
 ## Inspecting this handoff
 
-The supplied ZIP already contains a validated 85-question website rebuilt from the supplied
+The supplied ZIP already contains a validated 89-question website rebuilt from the supplied
 five October 2026 Word sources, which are included in `private-source/chapters/`. Extract it into a new folder and open `docs/index.html`
 to inspect the current public book before publishing. Check questions 2.2.5
 and 5.6.1 and their solutions, several diagrams and tables, the RTL/LTR text,
