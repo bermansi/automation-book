@@ -78,7 +78,8 @@ Use one Word numbering system for the question parts: either Hebrew
 question parts. This question list is authoritative: the importer uses its
 scheme and its number of items for the solution. Do not use Latin `A, B, C`.
 
-Both solution arrangements are supported:
+Both Word arrangements are supported. On the website, all question parts
+appear first, followed by one expandable solution with the answers in order.
 
 1. **Answer after each subpart:** put the subpart content, then a separate
    `פתרון` paragraph and that subpart's answer. Repeat for every subpart. The

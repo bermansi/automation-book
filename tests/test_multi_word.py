@@ -158,7 +158,7 @@ class MultiWordTests(unittest.TestCase):
                 archive.writestr(name, content)
         structure = BUILDER.semantic_structure(source, self.folder / 'controller-marked.docx')
         self.assertEqual([q.id for q in structure.questions],
-                         ['1.6.1א', '1.6.1ב', '1.6.2א', '1.6.2ב', '1.6.3', '1.6.4'])
+                         [f'1.6.{i}' for i in range(1, 7)])
 
     def test_explicit_chapter_four_numbers_and_current_titles(self):
         source = self.sources[3]

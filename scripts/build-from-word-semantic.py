@@ -64,15 +64,6 @@ LIST_FORMAT_MARKER = "[[ABLISTFMT:hebrew]]"
 
 EXCLUDED_PUBLIC_SECTIONS = {"4.8"}
 
-# Preserve the established public numbering in the controller subsection.
-SPECIAL_QUESTION_NUMBERS = {
-    ("1.6", 1): "1.6.1א",
-    ("1.6", 2): "1.6.1ב",
-    ("1.6", 3): "1.6.2א",
-    ("1.6", 4): "1.6.2ב",
-    ("1.6", 5): "1.6.3",
-}
-
 REGULAR_VISUALS: Dict[str, Sequence[str]] = {
     "1.1.3": ("1-1-3-solution",),
     "1.7.4": ("1-7-4",),
@@ -650,9 +641,7 @@ def semantic_structure(source: Path, marked_output: Path) -> Structure:
                         continue
                     question_counter[section_id] += 1
                     ordinal = question_counter[section_id]
-                    question_id = SPECIAL_QUESTION_NUMBERS.get(
-                        (section_id, ordinal), f"{section_id}.{ordinal}"
-                    )
+                    question_id = f"{section_id}.{ordinal}"
                     add_question(question_id, chapter, section_id, text, record)
                 continue
 
@@ -705,15 +694,13 @@ def semantic_structure(source: Path, marked_output: Path) -> Structure:
                 if CONTROLLER_TEXT_QUESTION_RE.match(record.text)
                 or (record.level == 0 and record.num_id in {"25", "26"})
             ]
-            expected_ids = ["1.6.1א", "1.6.1ב", "1.6.2א", "1.6.2ב", "1.6.3"]
-            if len(controller_starts) < len(expected_ids):
+            if len(controller_starts) < 5:
                 raise SystemExit(
                     "Section 1.6 must retain its five established controller questions; "
                     f"discovered {len(controller_starts)}"
                 )
-            expected_ids.extend(f"1.6.{index}" for index in range(4, len(controller_starts) - 1))
-            for question_id, record in zip(expected_ids, controller_starts):
-                add_question(question_id, "1", "1.6", record.text, record)
+            for index, record in enumerate(controller_starts, start=1):
+                add_question(f"1.6.{index}", "1", "1.6", record.text, record)
 
         boundaries: List[Tuple[int, str]] = chapter_markers
         boundaries += [(section.paragraph_index, section.marker) for section in sections]
@@ -787,26 +774,33 @@ def semantic_structure(source: Path, marked_output: Path) -> Structure:
                 for record in records[question.paragraph_index + 1 : end_index]
                 if solution_marker(record.text)
             ]
-            # The reactor exercise is a worked design example: Word places the
-            # full worked content immediately after its title and intentionally
-            # has no literal "פתרון" paragraph.  Preserve that documented
-            # convention while requiring normal new questions to include the
-            # explicit solution marker.
+            # The older reactor source has no explicit solution marker. The
+            # prompt precedes the solution's variable table and worked outputs.
             if not solutions and question.id == "2.2.1":
                 implicit_solution = next(
                     (
                         record
-                        for record in records[question.paragraph_index + 1 : end_index]
-                        if record.text.strip()
+                        for record in body_records
+                        if re.fullmatch(r"מנוע מילוי\s*:\s*", record.text.strip())
                     ),
                     None,
                 )
-                if implicit_solution is not None:
-                    marker = f"[[ABSOLUTION:{question.id}:main]]"
-                    question.solution_index = implicit_solution.paragraph_index
-                    question.solution_marker = marker
-                    add_prefix(implicit_solution.element, marker)
-                    continue
+                if implicit_solution is None:
+                    raise SystemExit("Cannot locate the solution of 2.2.1: add a separate פתרון paragraph.")
+                marker = f"[[ABSOLUTION:{question.id}:main]]"
+                question.solution_index = implicit_solution.paragraph_index
+                question.solution_marker = marker
+                heading = records[question.paragraph_index].element
+                for element in heading.itersiblings():
+                    if element is implicit_solution.element:
+                        add_prefix(element, marker)
+                        break
+                    if element.tag == qn("tbl"):
+                        boundary = etree.Element(qn("p"))
+                        add_prefix(boundary, marker)
+                        element.addprevious(boundary)
+                        break
+                continue
             if not solutions:
                 question.draft = True
                 continue
@@ -1010,8 +1004,6 @@ def build_exercises(
         intro_html = legacy.clean_fragment(
             children[question_point.block_index + 1 : first_part_point.block_index]
         )
-        if not intro_html.strip():
-            intro_html = "<p>השאלה מחולקת לסעיפים. לכל סעיף פתרון שנפתח בנפרד.</p>"
         parts = []
         for index, part in enumerate(question.parts):
             part_point = marker_point(children, part.marker)

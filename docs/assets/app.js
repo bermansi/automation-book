@@ -134,21 +134,23 @@
 
   function renderExerciseBody(ex) {
     if (Array.isArray(ex.parts) && ex.parts.length) {
-      const partsHtml = ex.parts.map(part => `
+      const renderParts = field => ex.parts.map(part => `
         <section class="exercise-part">
           <h5>סעיף ${part.label}</h5>
-          <div class="question-label">שאלה</div>
-          <div class="question-body">${part.questionHtml}</div>
-          <details class="solution">
-            <summary>הצג פתרון סעיף ${part.label}</summary>
-            <div class="solution-body">${part.solutionHtml}</div>
-          </details>
+          ${part[field]}
         </section>
       `).join('');
       return `
-        <div class="question-label">מבנה השאלה</div>
-        <div class="question-body">${ex.questionHtml || ''}</div>
-        <div class="parts-list">${partsHtml}</div>
+        <div class="question-label">שאלה</div>
+        <div class="question-body">${ex.questionHtml || ''}
+          <div class="parts-list">${renderParts('questionHtml')}</div>
+        </div>
+        <details class="solution">
+          <summary>הצג פתרון</summary>
+          <div class="solution-body">
+            <div class="parts-list">${renderParts('solutionHtml')}</div>
+          </div>
+        </details>
       `;
     }
     return `
