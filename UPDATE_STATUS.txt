@@ -1,0 +1,1 @@
+PARTIAL UPDATE: canonical previous edition with approved corrections only. New October sources retained in private-source/pending; full conversion blocked by 1.2.2 and 2-2-1-light-karnaugh. Do not publish as full October update.
